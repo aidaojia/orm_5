@@ -17,6 +17,7 @@ use Doctrine\DBAL\Connection as DoctrineConnection;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 use Illuminate\Database\Schema\Builder as SchemaBuilder;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
+use \App\Foundation\Commons\DbSync;
 
 class Connection implements ConnectionInterface
 {
@@ -398,7 +399,7 @@ class Connection implements ConnectionInterface
      */
     public function statement($query, $bindings = [])
     {
-        if (\App\Foundation\Commons\DbSync::isInsert($query)) {
+        if (DbSync::getInstance()->isInsert($query)) {
             $affected = $this->affectingStatement($query, $bindings);
 
             return $affected > 0 ? true : false;
@@ -409,11 +410,11 @@ class Connection implements ConnectionInterface
                 return true;
             }
 
-            if (\App\Foundation\Commons\DbSync::isUpdate($query)) {
-                \App\Foundation\Commons\DbSync::hookUpdate($query, $bindings);
+            if (DbSync::getInstance()->isUpdate($query)) {
+                DbSync::getInstance()->hookUpdate($query, $bindings);
             }
-            elseif (\App\Foundation\Commons\DbSync::isDelete($query)) {
-                \App\Foundation\Commons\DbSync::hookDelete($query, $bindings);
+            elseif (DbSync::getInstance()->isDelete($query)) {
+                DbSync::getInstance()->hookDelete($query, $bindings);
             }
 
             $bindings = $me->prepareBindings($bindings);
@@ -436,11 +437,11 @@ class Connection implements ConnectionInterface
                 return 0;
             }
 
-            if (\App\Foundation\Commons\DbSync::isUpdate($query)) {
-                \App\Foundation\Commons\DbSync::hookUpdate($query, $bindings);
+            if (DbSync::getInstance()->isUpdate($query)) {
+                DbSync::getInstance()->hookUpdate($query, $bindings);
             }
-            elseif (\App\Foundation\Commons\DbSync::isDelete($query)) {
-                \App\Foundation\Commons\DbSync::hookDelete($query, $bindings);
+            elseif (DbSync::getInstance()->isDelete($query)) {
+                DbSync::getInstance()->hookDelete($query, $bindings);
             }
 
             // For update or delete statements, we want to get the number of rows affected
@@ -453,10 +454,10 @@ class Connection implements ConnectionInterface
             return $statement->rowCount();
         });
 
-        if (\App\Foundation\Commons\DbSync::isInsert($query)) {
+        if (DbSync::getInstance()->isInsert($query)) {
             if ($affected > 0) {
                 $lastId = $this->getPdo()->lastInsertId();
-                \App\Foundation\Commons\DbSync::hookInsert($query, $bindings, $lastId, $affected);
+                DbSync::getInstance()->hookInsert($query, $lastId, $affected);
             }
         }
 
@@ -688,15 +689,6 @@ class Connection implements ConnectionInterface
         // run the SQL against the PDO connection. Then we can calculate the time it
         // took to execute and log the query SQL, bindings and time in our memory.
         try {
-            // 最终调用处
-            if (\App\Foundation\Commons\Database::isInsert($query)) {
-                $id = $pdo->lastInsertId();
-                $affected = $obj->rowCount();
-
-                \App\Foundation\Commons\Database::hookQueryInsert($query, $bindings, $id, $affected);
-            }
-
-
             $result = $callback($this, $query, $bindings);
         }
 
