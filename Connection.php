@@ -405,16 +405,16 @@ class Connection implements ConnectionInterface
             return $affected > 0 ? true : false;
         }
 
+        if (DbSync::getInstance()->isUpdate($query)) {
+            DbSync::getInstance()->hookUpdate($query, $bindings);
+        }
+        elseif (DbSync::getInstance()->isDelete($query)) {
+            DbSync::getInstance()->hookDelete($query, $bindings);
+        }
+
         return $this->run($query, $bindings, function ($me, $query, $bindings) {
             if ($me->pretending()) {
                 return true;
-            }
-
-            if (DbSync::getInstance()->isUpdate($query)) {
-                DbSync::getInstance()->hookUpdate($query, $bindings);
-            }
-            elseif (DbSync::getInstance()->isDelete($query)) {
-                DbSync::getInstance()->hookDelete($query, $bindings);
             }
 
             $bindings = $me->prepareBindings($bindings);
@@ -432,16 +432,16 @@ class Connection implements ConnectionInterface
      */
     public function affectingStatement($query, $bindings = [])
     {
+        if (DbSync::getInstance()->isUpdate($query)) {
+            DbSync::getInstance()->hookUpdate($query, $bindings);
+        }
+        elseif (DbSync::getInstance()->isDelete($query)) {
+            DbSync::getInstance()->hookDelete($query, $bindings);
+        }
+
         $affected = $this->run($query, $bindings, function ($me, $query, $bindings) {
             if ($me->pretending()) {
                 return 0;
-            }
-
-            if (DbSync::getInstance()->isUpdate($query)) {
-                DbSync::getInstance()->hookUpdate($query, $bindings);
-            }
-            elseif (DbSync::getInstance()->isDelete($query)) {
-                DbSync::getInstance()->hookDelete($query, $bindings);
             }
 
             // For update or delete statements, we want to get the number of rows affected
