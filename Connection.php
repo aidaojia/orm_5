@@ -149,6 +149,8 @@ class Connection implements ConnectionInterface
      */
     protected $config = [];
 
+    protected $dbSync = null;
+
     /**
      * Create a new database connection instance.
      *
@@ -177,6 +179,8 @@ class Connection implements ConnectionInterface
         $this->useDefaultQueryGrammar();
 
         $this->useDefaultPostProcessor();
+
+        $this->dbSync = DbSync::getInstance();
     }
 
     /**
@@ -399,17 +403,17 @@ class Connection implements ConnectionInterface
      */
     public function statement($query, $bindings = [])
     {
-        if (DbSync::getInstance()->isInsert($query)) {
+        if ($this->dbSync->isInsert($query)) {
             $affected = $this->affectingStatement($query, $bindings);
 
             return $affected > 0 ? true : false;
         }
 
-        if (DbSync::getInstance()->isUpdate($query)) {
-            DbSync::getInstance()->hookUpdate($query, $bindings);
+        if ($this->dbSync->isUpdate($query)) {
+            $this->dbSync->hookUpdate($query, $this->prepareBindings($bindings));
         }
-        elseif (DbSync::getInstance()->isDelete($query)) {
-            DbSync::getInstance()->hookDelete($query, $bindings);
+        elseif ($this->dbSync->isDelete($query)) {
+            $this->dbSync->hookDelete($query, $this->prepareBindings($bindings));
         }
 
         return $this->run($query, $bindings, function ($me, $query, $bindings) {
@@ -432,11 +436,11 @@ class Connection implements ConnectionInterface
      */
     public function affectingStatement($query, $bindings = [])
     {
-        if (DbSync::getInstance()->isUpdate($query)) {
-            DbSync::getInstance()->hookUpdate($query, $bindings);
+        if ($this->dbSync->isUpdate($query)) {
+            $this->dbSync->hookUpdate($query, $this->prepareBindings($bindings));
         }
-        elseif (DbSync::getInstance()->isDelete($query)) {
-            DbSync::getInstance()->hookDelete($query, $bindings);
+        elseif ($this->dbSync->isDelete($query)) {
+            $this->dbSync->hookDelete($query, $this->prepareBindings($bindings));
         }
 
         $affected = $this->run($query, $bindings, function ($me, $query, $bindings) {
@@ -454,10 +458,10 @@ class Connection implements ConnectionInterface
             return $statement->rowCount();
         });
 
-        if (DbSync::getInstance()->isInsert($query)) {
+        if ($this->dbSync->isInsert($query)) {
             if ($affected > 0) {
                 $lastId = $this->getPdo()->lastInsertId();
-                DbSync::getInstance()->hookInsert($query, $lastId, $affected);
+                $this->dbSync->hookInsert($query, $lastId, $affected);
             }
         }
 
